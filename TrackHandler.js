@@ -59,6 +59,12 @@ TrackHandler.prototype.handleMidi = function(status, data1, data2) {
             .volume()
             .set(data2, 128);
         return true;
+    }
+
+    // handles track selection buttons
+    if (inRange(status, 0xb0, 0xb7) && data1 == 0x10 && data2 == 0x00) {
+        this.trackbank.getItemAt(status - 0xb0).selectInMixer();
+        return true;
     } else {
         channel = status >= 0x90 ? status - 0x90 : status - 0x80;
 
