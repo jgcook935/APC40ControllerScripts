@@ -9,17 +9,6 @@ const MUTE = 0x32;
 const SOLO = 0x31;
 const ARM = 0x30;
 
-// for the track control knobs
-// TODO: add variables to track whether the user has selected pan/sendA/sendB/sendC
-const KNOB_1 = 0x30;
-const KNOB_2 = 0x31;
-const KNOB_3 = 0x32;
-const KNOB_4 = 0x33;
-const KNOB_5 = 0x34;
-const KNOB_6 = 0x35;
-const KNOB_7 = 0x36;
-const KNOB_8 = 0x37;
-
 TrackHandler = (trackbank, cursorTrack) => {
     this.trackbank = trackbank;
     this.cursorTrack = cursorTrack;
@@ -50,20 +39,26 @@ TrackHandler = (trackbank, cursorTrack) => {
     // this.cursorTrack.mute().markInterested();
 };
 
-// i need to go through these values and cache their op codes to reflect the ones on the APC40
-// the main bank will be the 8 by 5 grid. the activator buttons will set the mute on each track
-// the solo/cue will handle those, and record arm will handle that. the knobs in the top right
-// corner of the controller will handle panning and i hope to set up sends as well. i should
-// eventually be able to hook up the scene and clip launching here too
-
 TrackHandler.prototype.handleMidi = function(status, data1, data2) {
     let channel;
+
+    // handles track control knobs
     if (isChannelController(status) && inRange(data1, 0x30, 0x37)) {
         // TODO: check whether pan, or any of the sends are selected here
         this.trackbank
             .getItemAt(data1 - 0x30)
             .pan()
             .set(data2, 128);
+        return true;
+    }
+
+    // handles track faders
+    if (inRange(status, 0xb0, 0xb7) && data1 == 0x07) {
+        this.trackbank
+            .getItemAt(status - 0xb0)
+            .volume()
+            .set(data2, 128);
+        return true;
     } else {
         channel = status >= 0x90 ? status - 0x90 : status - 0x80;
 
