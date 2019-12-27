@@ -6,7 +6,7 @@ load("TrackHandler.js");
 
 // Remove this if you want to be able to use deprecated methods without causing script to stop.
 // This is useful during development.
-host.setShouldFailOnDeprecatedUse(true);
+// host.setShouldFailOnDeprecatedUse(true);
 host.defineController("Akai", "Apc 40 Mk1", "0.1", "4e845965-c7c3-4a5f-8a19-c7eed3dc80ea", "jgcook935");
 host.defineMidiPorts(1, 1);
 host.addDeviceNameBasedDiscoveryPair(["Akai APC40"], ["Akai APC40"]);

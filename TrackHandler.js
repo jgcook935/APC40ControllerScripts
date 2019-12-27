@@ -68,9 +68,17 @@ TrackHandler.prototype.handleMidi = function(status, data1, data2) {
         return true;
     }
 
-    // handles track selection buttons
+    // handles single track stop
     if (inRange(status, 0x90, 0x97) && data1 == 0x34 && data2 == 0x7f) {
         this.trackbank.getItemAt(status - 0x90).stop();
+        return true;
+    }
+
+    // handles all track stop
+    if (status == 0x90 && data1 == 0x51 && data2 == 0x7f) {
+        for (let i = 0; i < 8; i++) {
+            this.trackbank.getItemAt(i).stop();
+        }
         return true;
     }
 
@@ -82,7 +90,10 @@ TrackHandler.prototype.handleMidi = function(status, data1, data2) {
 
     // handles clip launch
     if (inRange(status, 0x90, 0x97) && inRange(data1, 0x35, 0x39) && data2 == 0x7f) {
-        // this.trackbank.
+        this.trackbank
+            .getItemAt(status - 0x90)
+            .getClipLauncherSlots()
+            .launch(data1 - 0x35);
     } else {
         channel = status >= 0x90 ? status - 0x90 : status - 0x80;
 
