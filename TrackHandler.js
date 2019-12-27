@@ -12,6 +12,7 @@ const ARM = 0x30;
 TrackHandler = (trackbank, cursorTrack) => {
     this.trackbank = trackbank;
     this.cursorTrack = cursorTrack;
+    // this.sceneBank = this.trackbank.sceneBank;
 
     for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
         var track = this.trackbank.getItemAt(i);
@@ -53,7 +54,7 @@ TrackHandler.prototype.handleMidi = function(status, data1, data2) {
     }
 
     // handles track faders
-    if (inRange(status, 0xb0, 0xb7) && data1 == 0x07) {
+    if (isControl(status) && data1 == 0x07) {
         this.trackbank
             .getItemAt(status - 0xb0)
             .volume()
@@ -62,9 +63,26 @@ TrackHandler.prototype.handleMidi = function(status, data1, data2) {
     }
 
     // handles track selection buttons
-    if (inRange(status, 0xb0, 0xb7) && data1 == 0x10 && data2 == 0x00) {
+    if (isControl(status) && data1 == 0x10 && data2 == 0x00) {
         this.trackbank.getItemAt(status - 0xb0).selectInMixer();
         return true;
+    }
+
+    // handles track selection buttons
+    if (inRange(status, 0x90, 0x97) && data1 == 0x34 && data2 == 0x7f) {
+        this.trackbank.getItemAt(status - 0x90).stop();
+        return true;
+    }
+
+    // handles scene launch
+    if (inRange(status, 0x90, 0x97) && inRange(data1, 0x52, 0x56)) {
+        this.trackbank.sceneBank().launchScene(data1 - 0x52);
+        return true;
+    }
+
+    // handles clip launch
+    if (inRange(status, 0x90, 0x97) && inRange(data1, 0x35, 0x39) && data2 == 0x7f) {
+        // this.trackbank.
     } else {
         channel = status >= 0x90 ? status - 0x90 : status - 0x80;
 

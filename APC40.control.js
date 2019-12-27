@@ -40,7 +40,7 @@ handleMidi = (status, data1, data2) => {
 };
 
 function flush() {
-    hardware.updateLED(BUTTON_PLAY, transportHandler.transport.isPlaying().get());
+    // hardware.updateLED(BUTTON_PLAY, transportHandler.transport.isPlaying().get());
 }
 
 function exit() {}
