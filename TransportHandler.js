@@ -16,36 +16,46 @@ TransportHandler = transport => {
 };
 
 TransportHandler.prototype.handleMidi = (status, data1, data2) => {
-    if (!isNoteOn(status)) return false;
+    if (isNoteOn(status)) {
+        switch (data1) {
+            case BUTTON_PLAY:
+                this.transport.play();
+                return true;
 
-    if (data2 == 0) return true;
+            case BUTTON_STOP:
+                this.transport.stop();
+                return true;
 
-    switch (data1) {
-        case BUTTON_PLAY:
-            this.transport.play();
-            return true;
+            case BUTTON_RECORD:
+                this.transport.record();
+                return true;
 
-        case BUTTON_STOP:
-            this.transport.stop();
-            return true;
+            case BUTTON_TAP:
+                this.transport.tapTempo();
+                return true;
 
-        case BUTTON_RECORD:
-            this.transport.record();
-            return true;
+            case BUTTON_METRO:
+                this.transport.isMetronomeEnabled().toggle();
+                return true;
 
-        case BUTTON_TAP:
-            this.transport.tapTempo();
-            return true;
+            case BUTTON_OVERDUB:
+                this.transport.isArrangerOverdubEnabled().toggle();
+                return true;
 
-        case BUTTON_METRO:
-            this.transport.isMetronomeEnabled().toggle();
-            return true;
-
-        case BUTTON_OVERDUB:
-            this.transport.isArrangerOverdubEnabled().toggle();
-            return true;
-
-        default:
-            return false;
+            default:
+                return false;
+        }
+    }
+    if (isControl(status)) {
+        switch (data1) {
+            case 0x0f:
+                this.transport
+                    .crossfade()
+                    .value()
+                    .set(data2, 128);
+                return true;
+            default:
+                return false;
+        }
     }
 };
