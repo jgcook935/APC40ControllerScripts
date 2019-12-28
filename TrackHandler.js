@@ -12,7 +12,6 @@ const ARM = 0x30;
 TrackHandler = (trackbank, cursorTrack) => {
     this.trackbank = trackbank;
     this.cursorTrack = cursorTrack;
-    // this.sceneBank = this.trackbank.sceneBank;
 
     for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
         var track = this.trackbank.getItemAt(i);
@@ -40,7 +39,7 @@ TrackHandler = (trackbank, cursorTrack) => {
     // this.cursorTrack.mute().markInterested();
 };
 
-TrackHandler.prototype.handleMidi = function(status, data1, data2) {
+TrackHandler.prototype.handleMidi = (status, data1, data2) => {
     let channel;
 
     // handles track control knobs
@@ -94,6 +93,7 @@ TrackHandler.prototype.handleMidi = function(status, data1, data2) {
             .getItemAt(status - 0x90)
             .getClipLauncherSlots()
             .launch(data1 - 0x35);
+        return true;
     } else {
         channel = status >= 0x90 ? status - 0x90 : status - 0x80;
 
