@@ -2,6 +2,7 @@ loadAPI(10);
 load("Apc40Hardware.js");
 load("ApplicationHandler.js");
 load("MasterTrackHandler.js");
+load("RemoteControlHandler.js");
 load("TrackHandler.js");
 load("TransportHandler.js");
 
@@ -14,18 +15,27 @@ host.addDeviceNameBasedDiscoveryPair(["Akai APC40"], ["Akai APC40"]);
 
 var application = null;
 var hardware = null;
-var transport = null;
 var master = null;
+var remoteControlHandler = null;
+var transport = null;
+var trackHandler = null;
 
 init = () => {
     hardware = new Apc40Hardware(host.getMidiOutPort(0), host.getMidiInPort(0), handleMidi);
     applicationHandler = new ApplicationHandler(host.createApplication());
     masterHandler = new MasterTrackHandler(host.createMasterTrack(8));
-    transportHandler = new TransportHandler(host.createTransport());
-    trackHandler = new TrackHandler(
-        host.createMainTrackBank(8, 3, 5),
-        host.createCursorTrack("APC40_CURSOR_TRACK", "Cursor Track", 3, 5, true)
+
+    var cursorTrack = host.createCursorTrack("APC40_CURSOR_TRACK", "Cursor Track", 3, 5, true);
+    trackHandler = new TrackHandler(host.createMainTrackBank(8, 3, 5), cursorTrack);
+
+    var cursorDevice = cursorTrack.createCursorDevice(
+        "APC40_CURSOR_DEVICE",
+        "Cursor Device",
+        3,
+        CursorDeviceFollowMode.FOLLOW_SELECTION
     );
+    remoteControlHandler = new RemoteControlHandler(cursorDevice, cursorDevice.createCursorRemoteControlsPage(8));
+    transportHandler = new TransportHandler(host.createTransport());
 
     println("Apc 40 Mk1 initialized!");
     host.showPopupNotification("Apc 40 Mk1 initialized!");
@@ -35,6 +45,7 @@ handleMidi = (status, data1, data2) => {
     printMidi(status, data1, data2);
     if (trackHandler.handleMidi(status, data1, data2)) return;
     if (transportHandler.handleMidi(status, data1, data2)) return;
+    if (remoteControlHandler.handleMidi(status, data1, data2)) return;
     if (applicationHandler.handleMidi(status, data1, data2)) return;
     if (masterHandler.handleMidi(status, data1, data2)) return;
 };
