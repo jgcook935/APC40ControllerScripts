@@ -9,11 +9,7 @@ Apc40Hardware = (outputPort, inputPort, inputCallback) => {
 
 Apc40Hardware.prototype.updateLED = (note, isOn) => {
     var value = isOn ? 127 : 0;
-    if (this.ledCache[note] != value) {
-        this.ledCache[note] = value;
-        this.portOut.sendMidi(0x90, note, value);
-        println("Updated to " + this.ledCache[note]);
-    } else {
-        println("Not updated...");
-    }
+    if (this.ledCache[note] == value) return;
+    this.ledCache[note] = value;
+    this.portOut.sendMidi(0x90, note, value);
 };

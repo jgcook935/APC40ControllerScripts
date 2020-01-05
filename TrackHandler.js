@@ -87,6 +87,18 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
         return true;
     }
 
+    // handles track pages
+    if (isNoteOn(status)) {
+        switch (data1) {
+            case SELECT_LEFT:
+                this.trackbank.scrollPageBackwards();
+                return true;
+            case SELECT_RIGHT:
+                this.trackbank.scrollPageForwards();
+                return true;
+        }
+    }
+
     // handles clip launch
     if (inRange(status, 0x90, 0x97) && inRange(data1, 0x35, 0x39) && data2 == 0x7f) {
         this.trackbank
@@ -115,12 +127,6 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
                     .getItemAt(channel)
                     .arm()
                     .toggle();
-                return true;
-            case SELECT_LEFT:
-                this.trackbank.scrollPageBackwards();
-                return true;
-            case SELECT_RIGHT:
-                this.trackbank.scrollPageForwards();
                 return true;
             default:
                 return false;
