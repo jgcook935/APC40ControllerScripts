@@ -15,10 +15,10 @@ MasterTrackHandler.prototype.handleMidi = (status, data1, data2) => {
         }
     }
 
-    if ((status = 0xb8)) {
+    if (isNoteOn(status) && data1 == 0x50) {
         this.master.selectInMixer();
         return true;
-    } else {
-        return false;
     }
+
+    return false;
 };
