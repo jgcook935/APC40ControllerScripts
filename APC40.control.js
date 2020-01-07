@@ -22,11 +22,12 @@ var trackHandler = null;
 
 init = () => {
     hardware = new Apc40Hardware(host.getMidiOutPort(0), host.getMidiInPort(0), handleMidi);
+    hardware.sendMode(0x42);
     applicationHandler = new ApplicationHandler(host.createApplication());
     masterHandler = new MasterTrackHandler(host.createMasterTrack(8));
 
     var cursorTrack = host.createCursorTrack("APC40_CURSOR_TRACK", "Cursor Track", 3, 5, true);
-    trackHandler = new TrackHandler(host.createMainTrackBank(8, 3, 5), cursorTrack);
+    trackHandler = new TrackHandler(host.createMainTrackBank(8, 3, 5), cursorTrack, hardware);
 
     var cursorDevice = cursorTrack.createCursorDevice(
         "APC40_CURSOR_DEVICE",
@@ -34,8 +35,12 @@ init = () => {
         3,
         CursorDeviceFollowMode.FOLLOW_SELECTION
     );
-    remoteControlHandler = new RemoteControlHandler(cursorDevice, cursorDevice.createCursorRemoteControlsPage(8));
-    transportHandler = new TransportHandler(host.createTransport());
+    remoteControlHandler = new RemoteControlHandler(
+        cursorDevice,
+        cursorDevice.createCursorRemoteControlsPage(8),
+        hardware
+    );
+    transportHandler = new TransportHandler(host.createTransport(), hardware);
 
     println("Apc 40 Mk1 initialized!");
     host.showPopupNotification("Apc 40 Mk1 initialized!");
