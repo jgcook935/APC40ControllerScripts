@@ -6,8 +6,9 @@ const BUTTON_TAP = 0x63;
 const BUTTON_METRO = 0x41;
 const BUTTON_OVERDUB = 0x40;
 
-TransportHandler = transport => {
+TransportHandler = (transport, hardware) => {
     this.transport = transport;
+    this.hardware = hardware;
 
     this.transport.isPlaying().markInterested();
     this.transport.isArrangerRecordEnabled().markInterested();
@@ -36,10 +37,12 @@ TransportHandler.prototype.handleMidi = (status, data1, data2) => {
 
             case BUTTON_METRO:
                 this.transport.isMetronomeEnabled().toggle();
+                this.hardware.updateLed(!this.transport.isMetronomeEnabled().get(), 0x41);
                 return true;
 
             case BUTTON_OVERDUB:
                 this.transport.isArrangerOverdubEnabled().toggle();
+                this.hardware.updateLed(!this.transport.isArrangerOverdubEnabled().get(), 0x40);
                 return true;
 
             default:
