@@ -1,6 +1,4 @@
-const BUTTON_DETAIL = 0x3e;
-const BUTTON_CLIP_TRACK = 0x3a;
-const BUTTON_DEVICE = 0x3b;
+load("Constants.js");
 
 var detailState = false;
 

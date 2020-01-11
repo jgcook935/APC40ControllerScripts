@@ -1,3 +1,5 @@
+load("Constants.js");
+
 MasterTrackHandler = master => {
     this.master = master;
 
@@ -5,9 +7,9 @@ MasterTrackHandler = master => {
 };
 
 MasterTrackHandler.prototype.handleMidi = (status, data1, data2) => {
-    if (isControl(status)) {
+    if (isChannelController(status)) {
         switch (data1) {
-            case 0x0e:
+            case MASTER_VOLUME:
                 this.master.getVolume().set(data2, 128);
                 return true;
             default:
@@ -15,7 +17,7 @@ MasterTrackHandler.prototype.handleMidi = (status, data1, data2) => {
         }
     }
 
-    if (isNoteOn(status) && data1 == 0x50) {
+    if (isNoteOn(status) && data1 == MASTER_TRACK) {
         this.master.selectInMixer();
         return true;
     }

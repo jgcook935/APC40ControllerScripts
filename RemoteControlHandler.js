@@ -30,10 +30,10 @@ RemoteControlHandler.prototype.updateParameterLeds = () => {
 RemoteControlHandler.prototype.handleMidi = (status, data1, data2) => {
     if (isNoteOn(status)) {
         switch (data1) {
-            case 0x3c:
+            case ARROW_LEFT:
                 this.cursorDevice.selectPrevious();
                 return true;
-            case 0x3d:
+            case ARROW_RIGHT:
                 this.cursorDevice.selectNext();
                 return true;
             default:

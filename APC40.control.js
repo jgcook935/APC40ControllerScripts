@@ -46,9 +46,9 @@ init = () => {
 handleMidi = (status, data1, data2) => {
     printMidi(status, data1, data2);
     if (track.handleMidi(status, data1, data2)) return;
+    if (remote.handleMidi(status, data1, data2)) return;
     if (device.handleMidi(status, data1, data2)) return;
     if (transport.handleMidi(status, data1, data2)) return;
-    if (remote.handleMidi(status, data1, data2)) return;
     if (app.handleMidi(status, data1, data2)) return;
     if (master.handleMidi(status, data1, data2)) return;
 };
