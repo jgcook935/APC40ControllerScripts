@@ -12,6 +12,12 @@ const ARM = 0x30;
 let currentChannel = null;
 let panSelected = null;
 
+let volumeCache = [0, 0, 0, 0, 0, 0, 0, 0];
+let panCache = [0, 0, 0, 0, 0, 0, 0, 0];
+let muteCache = [0, 0, 0, 0, 0, 0, 0, 0];
+let soloCache = [0, 0, 0, 0, 0, 0, 0, 0];
+let armCache = [0, 0, 0, 0, 0, 0, 0, 0];
+
 TrackHandler = (trackbank, cursorTrack, hardware) => {
     this.trackbank = trackbank;
     this.cursorTrack = cursorTrack;
@@ -24,22 +30,24 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
         const pan = track.pan();
         pan.markInterested();
         pan.setIndication(true);
+        panCache[i] = pan.get();
 
         const volume = track.volume();
         volume.markInterested();
         volume.setIndication(true);
+        volumeCache[i] = volume.get();
 
         const solo = track.solo();
         solo.markInterested();
-        isSolo = solo.get();
+        soloCache[i] = solo.get();
 
         const arm = track.arm();
         arm.markInterested();
-        isArm = arm.get();
+        armCache[i] = arm.get();
 
         const mute = track.mute();
         mute.markInterested();
-        isMute = mute.get();
+        muteCache[i] = mute.get();
     }
 
     this.trackbank.followCursorTrack(this.cursorTrack);
@@ -57,24 +65,45 @@ TrackHandler.prototype.updateTrackLeds = () => {
         const solo = track.solo().get();
         const arm = track.arm().get();
 
-        // update track knob leds
-        this.hardware.updateDeviceKnobLedFrom(0x30 + i, this.panSelected ? pan : volume);
+        // update volume knobs
+        if (volumeCache[i] != volume && !this.panSelected) {
+            this.hardware.updateDeviceKnobLedFrom(0x30 + i, volume);
+            volumeCache[i] = volume;
+        }
 
-        // updating these in flush cause the knobs to be glitchy. i need to find a way to only update them in
-        // in flush when necessary.
+        // update pan knobs
+        if (panCache[i] != pan && this.panSelected) {
+            this.hardware.updateDeviceKnobLedFrom(0x30 + i, pan);
+            panCache[i] = pan;
+        }
 
-        // // update mute button leds
-        // this.hardware.updateChannelLed(mute, i, 0x32);
+        // update mute button leds
+        if (muteCache[i] != mute) {
+            this.hardware.updateChannelLed(mute, i, 0x32);
+            muteCache[i] = mute;
+        }
 
-        // // // update solo button leds
-        // this.hardware.updateChannelLed(solo, i, 0x31);
+        // update solo button leds
+        if (soloCache[i] != solo) {
+            this.hardware.updateChannelLed(solo, i, 0x31);
+            soloCache[i] = solo;
+        }
 
-        // // // update arm button leds
-        // this.hardware.updateChannelLed(arm, i, 0x30);
+        // update arm button leds
+        if (armCache[i] != arm) {
+            this.hardware.updateChannelLed(arm, i, 0x30);
+            armCache[i] = arm;
+        }
     }
 };
 
 TrackHandler.prototype.handleMidi = (status, data1, data2) => {
+    // handles pan selection
+    if (isNoteOn(status) && data1 == 0x57) {
+        this.panSelected = !this.panSelected;
+        this.hardware.updateLed(this.panSelected, 0x57);
+    }
+
     // handles track control knobs
     if (isChannelController(status) && inRange(data1, 0x30, 0x37)) {
         if (this.panSelected) {
@@ -82,14 +111,14 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
                 .getItemAt(data1 - 0x30)
                 .pan()
                 .set(data2, 128);
+            panCache[data1 - 0x30] = data2;
         } else {
             this.trackbank
                 .getItemAt(data1 - 0x30)
                 .volume()
                 .set(data2, 128);
+            volumeCache[data1 - 0x30] = data2;
         }
-        this.hardware.updateDeviceKnobLedTo(data1, data2);
-
         return true;
     }
 
@@ -176,68 +205,32 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
         return true;
     }
 
-    // handles pan selection
-    if (isNoteOn(status) && data1 == 0x57) {
-        this.panSelected = !this.panSelected;
-        this.hardware.updateLed(this.panSelected, 0x57);
-    }
-
+    // handles mute/solo/arm buttons
     if (inRange(status, 0x90, 0x97) && inRange(data1, 0x30, 0x32)) {
-        channel = status >= 0x90 ? status - 0x90 : status - 0x80;
+        channel = status - 0x90;
 
         switch (data1) {
             case MUTE:
-                this.trackbank
-                    .getItemAt(channel)
-                    .mute()
-                    .toggle();
-
-                this.hardware.updateChannelLed(
-                    !this.trackbank
-                        .getItemAt(channel)
-                        .mute()
-                        .get(),
-                    channel,
-                    0x32
-                );
+                mute = this.trackbank.getItemAt(channel).mute();
+                mute.toggle();
+                muteCache[channel] = mute.get();
                 return true;
 
             case SOLO:
-                this.trackbank
-                    .getItemAt(channel)
-                    .solo()
-                    .toggle();
-
-                this.hardware.updateChannelLed(
-                    !this.trackbank
-                        .getItemAt(channel)
-                        .solo()
-                        .get(),
-                    channel,
-                    0x31
-                );
+                solo = this.trackbank.getItemAt(channel).solo();
+                solo.toggle();
+                soloCache[channel] = solo.get();
                 return true;
 
             case ARM:
-                this.trackbank
-                    .getItemAt(channel)
-                    .arm()
-                    .toggle();
-
-                this.hardware.updateChannelLed(
-                    !this.trackbank
-                        .getItemAt(channel)
-                        .arm()
-                        .get(),
-                    channel,
-                    0x30
-                );
+                arm = this.trackbank.getItemAt(channel).arm();
+                arm.toggle();
+                armCache[channel] = arm.get();
                 return true;
 
             default:
                 return false;
         }
     }
-
     return false;
 };
