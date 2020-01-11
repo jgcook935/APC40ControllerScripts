@@ -1,3 +1,5 @@
+let paramCache = [0, 0, 0, 0, 0, 0, 0, 0];
+
 RemoteControlHandler = (cursorDevice, hardware) => {
     this.cursorDevice = cursorDevice;
     this.remoteControlsBank = this.cursorDevice.createCursorRemoteControlsPage(8);
@@ -6,6 +8,7 @@ RemoteControlHandler = (cursorDevice, hardware) => {
     for (let i = 0; i < this.remoteControlsBank.getParameterCount(); i++) {
         const param = this.remoteControlsBank.getParameter(i);
         param.markInterested();
+        paramCache[i] = param.get();
     }
 
     this.cursorDevice.isEnabled().markInterested();
@@ -16,7 +19,11 @@ RemoteControlHandler.prototype.updateParameterLeds = () => {
     for (i = 0; i < this.remoteControlsBank.getParameterCount(); i++) {
         const param = this.remoteControlsBank.getParameter(i);
         value = param.get();
-        this.hardware.updateDeviceKnobLedFrom(0x10 + i, value);
+
+        if (paramCache[i] != value) {
+            this.hardware.updateDeviceKnobLedFrom(0x10 + i, value);
+            paramCache[i] = value;
+        }
     }
 };
 
@@ -35,8 +42,9 @@ RemoteControlHandler.prototype.handleMidi = (status, data1, data2) => {
     }
 
     if (isChannelController(status) && inRange(data1, 0x10, 0x17)) {
-        this.remoteControlsBank.getParameter(data1 - 0x10).set(data2, 128);
-        this.hardware.updateDeviceKnobLedTo(data1 + 0x10, data2);
+        const channel = data1 - 0x10;
+        this.remoteControlsBank.getParameter(channel).set(data2, 128);
+        paramCache[channel] = data2;
         return true;
     }
 
