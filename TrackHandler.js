@@ -3,6 +3,8 @@ load("Helpers.js");
 // for bank select buttons, these will move the trackbank forward and back
 const SELECT_RIGHT = 0x60;
 const SELECT_LEFT = 0x61;
+const SELECT_DOWN = 0x5f;
+const SELECT_UP = 0x5e;
 
 // for the block of activator/solo/cue/arm buttons
 const MUTE = 0x32;
@@ -190,9 +192,21 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
             case SELECT_LEFT:
                 this.trackbank.scrollPageBackwards();
                 return true;
+
             case SELECT_RIGHT:
                 this.trackbank.scrollPageForwards();
                 return true;
+
+            case SELECT_UP:
+                this.trackbank.scrollTracksUp();
+                return true;
+
+            case SELECT_DOWN:
+                this.trackbank.scrollTracksDown();
+                return true;
+
+            default:
+                return false;
         }
     }
 
