@@ -9,7 +9,8 @@ const MUTE = 0x32;
 const SOLO = 0x31;
 const ARM = 0x30;
 
-var currentChannel = null;
+let currentChannel = null;
+let panSelected = null;
 
 TrackHandler = (trackbank, cursorTrack, hardware) => {
     this.trackbank = trackbank;
@@ -17,43 +18,78 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
     this.hardware = hardware;
 
     for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
-        var track = this.trackbank.getItemAt(i);
+        this.panSelected = false;
+        const track = this.trackbank.getItemAt(i);
 
-        var pan = track.pan();
+        const pan = track.pan();
         pan.markInterested();
         pan.setIndication(true);
 
-        var volume = track.volume();
+        const volume = track.volume();
         volume.markInterested();
         volume.setIndication(true);
 
-        var solo = track.solo();
+        const solo = track.solo();
         solo.markInterested();
+        isSolo = solo.get();
 
-        var arm = track.arm();
+        const arm = track.arm();
         arm.markInterested();
-        // solo.setIndication(true);
+        isArm = arm.get();
 
-        var mute = track.mute();
+        const mute = track.mute();
         mute.markInterested();
-        // mute.setIndication(true);
+        isMute = mute.get();
     }
 
     this.trackbank.followCursorTrack(this.cursorTrack);
+};
 
-    // this.cursorTrack.solo().markInterested();
-    // this.cursorTrack.mute().markInterested();
+TrackHandler.prototype.updateTrackLeds = () => {
+    for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
+        // grab the current track
+        const track = this.trackbank.getTrack(i);
+
+        // grab the track's attributes we care about
+        const volume = track.volume().get();
+        const pan = track.pan().get();
+        const mute = track.mute().get();
+        const solo = track.solo().get();
+        const arm = track.arm().get();
+
+        // update track knob leds
+        this.hardware.updateDeviceKnobLedFrom(0x30 + i, this.panSelected ? pan : volume);
+
+        // updating these in flush cause the knobs to be glitchy. i need to find a way to only update them in
+        // in flush when necessary.
+
+        // // update mute button leds
+        // this.hardware.updateChannelLed(mute, i, 0x32);
+
+        // // // update solo button leds
+        // this.hardware.updateChannelLed(solo, i, 0x31);
+
+        // // // update arm button leds
+        // this.hardware.updateChannelLed(arm, i, 0x30);
+    }
 };
 
 TrackHandler.prototype.handleMidi = (status, data1, data2) => {
     // handles track control knobs
     if (isChannelController(status) && inRange(data1, 0x30, 0x37)) {
-        // TODO: check whether pan, or any of the sends are selected here
-        this.trackbank
-            .getItemAt(data1 - 0x30)
-            .pan()
-            .set(data2, 128);
-        this.hardware.updateDeviceKnobLed(data1, data2);
+        if (this.panSelected) {
+            this.trackbank
+                .getItemAt(data1 - 0x30)
+                .pan()
+                .set(data2, 128);
+        } else {
+            this.trackbank
+                .getItemAt(data1 - 0x30)
+                .volume()
+                .set(data2, 128);
+        }
+        this.hardware.updateDeviceKnobLedTo(data1, data2);
+
         return true;
     }
 
@@ -73,7 +109,7 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
 
         // if we're selecting a channel for the first time
         if (currentChannel == null) {
-            this.trackbank.getItemAt(status - 0x90).selectInMixer();
+            this.trackbank.getTrack(status - 0x90).selectInMixer();
             this.hardware.updateChannelLed(true, channel, 0x33);
             currentChannel = channel;
         }
@@ -86,14 +122,12 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
 
         // if we select a new channel
         if (currentChannel == null || currentChannel != channel) {
-            this.trackbank.getItemAt(channel).selectInMixer();
-
-            this.hardware.updateChannelLed(true, channel, 0x33);
-
             // unselect previous track
             this.hardware.updateChannelLed(false, currentChannel, 0x33);
 
-            println("current channel " + currentChannel);
+            // select new track
+            this.trackbank.getTrack(channel).selectInMixer();
+            this.hardware.updateChannelLed(true, channel, 0x33);
 
             currentChannel = channel;
             return true;
@@ -140,6 +174,12 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
             .getClipLauncherSlots()
             .launch(data1 - 0x35);
         return true;
+    }
+
+    // handles pan selection
+    if (isNoteOn(status) && data1 == 0x57) {
+        this.panSelected = !this.panSelected;
+        this.hardware.updateLed(this.panSelected, 0x57);
     }
 
     if (inRange(status, 0x90, 0x97) && inRange(data1, 0x30, 0x32)) {
