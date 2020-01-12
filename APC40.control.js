@@ -53,9 +53,7 @@ handleMidi = (status, data1, data2) => {
     if (master.handleMidi(status, data1, data2)) return;
 };
 
-flush = () => {
-    device.updateDeviceLeds();
-};
+flush = () => {};
 
 exit = () => {
     // TODO: reset all device leds
