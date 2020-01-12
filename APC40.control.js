@@ -54,7 +54,6 @@ handleMidi = (status, data1, data2) => {
 };
 
 flush = () => {
-    remote.updateParameterLeds();
     device.updateDeviceLeds();
 };
 
