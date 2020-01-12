@@ -191,11 +191,11 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
                 return true;
 
             case SELECT_UP:
-                this.trackbank.scrollTracksUp();
+                this.trackbank.scrollScenesPageUp();
                 return true;
 
             case SELECT_DOWN:
-                this.trackbank.scrollTracksDown();
+                this.trackbank.scrollScenesPageDown();
                 return true;
 
             case SELECT_PAN:
