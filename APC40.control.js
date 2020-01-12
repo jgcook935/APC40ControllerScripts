@@ -2,6 +2,7 @@ loadAPI(10);
 load("Apc40Hardware.js");
 load("ApplicationHandler.js");
 load("DeviceHandler.js");
+load("ProjectHandler.js");
 load("RemoteControlHandler.js");
 load("TrackHandler.js");
 load("TransportHandler.js");
@@ -15,6 +16,7 @@ let app;
 let device;
 let hardware;
 let master;
+let project;
 let remote;
 let track;
 let transport;
@@ -23,6 +25,7 @@ init = () => {
     hardware = new Apc40Hardware(host.getMidiOutPort(0), host.getMidiInPort(0), handleMidi);
     app = new ApplicationHandler(host.createApplication());
     master = host.createMasterTrack(8);
+    project = new ProjectHandler(host.getProject());
 
     const cursorTrack = host.createCursorTrack("APC40_CURSOR_TRACK", "Cursor Track", 3, 5, true);
     track = new TrackHandler(host.createMainTrackBank(8, 3, 5), cursorTrack, hardware, master);
@@ -49,6 +52,7 @@ handleMidi = (status, data1, data2) => {
     if (device.handleMidi(status, data1, data2)) return;
     if (transport.handleMidi(status, data1, data2)) return;
     if (app.handleMidi(status, data1, data2)) return;
+    if (project.handleMidi(status, data1, data2)) return;
 };
 
 flush = () => {};

@@ -47,3 +47,6 @@ var CROSSFADE = 0x0f;
 // remote control handler
 var ARROW_LEFT = 0x3c;
 var ARROW_RIGHT = 0x3d;
+
+// project handler
+var CUE_LEVEL = 0x2f;
