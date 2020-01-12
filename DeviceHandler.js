@@ -3,10 +3,10 @@ load("Constants.js");
 DeviceHandler = (device, hardware) => {
     this.device = device;
     this.hardware = hardware;
-};
 
-DeviceHandler.prototype.updateDeviceLeds = () => {
-    this.hardware.updateLed(this.device.isEnabled().get(), 0x3b);
+    this.device.isEnabled().addValueObserver(isEnabled => {
+        hardware.updateLed(isEnabled, BUTTON_DEVICE);
+    });
 };
 
 DeviceHandler.prototype.handleMidi = (status, data1, data2) => {
