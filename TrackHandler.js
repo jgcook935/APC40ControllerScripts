@@ -4,10 +4,11 @@ load("Helpers.js");
 let currentChannel = undefined;
 let panSelected;
 
-TrackHandler = (trackbank, cursorTrack, hardware) => {
+TrackHandler = (trackbank, cursorTrack, hardware, master) => {
     this.trackbank = trackbank;
     this.cursorTrack = cursorTrack;
     this.hardware = hardware;
+    this.master = master;
 
     for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
         this.panSelected = true;
@@ -58,6 +59,8 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
         const knobChannel = 0x30 + i;
         const buttonChannel = i;
 
+        // i need to set indication and mark interested for master volume
+
         const pan = track.pan();
         pan.markInterested();
         pan.setIndication(true);
@@ -99,29 +102,26 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
     this.hardware.updateLed(this.panSelected, SELECT_PAN);
 };
 
-TrackHandler.prototype.selectTrack = status => {
-    let channel = status - 0x90;
-
-    // if we are selecting the same channel as before, do nothing
-    if (currentChannel == channel) {
-        // no op
+TrackHandler.prototype.selectTrack = (status, data1) => {
+    let channel;
+    if (data1 != MASTER_TRACK) {
+        channel = status - 0x90;
+    } else {
+        channel = 8;
     }
 
-    // if we're selecting a channel for the first time
-    if (currentChannel == undefined) {
-        this.trackbank.getTrack(status - 0x90).selectInMixer();
-        this.hardware.updateChannelLed(true, channel, SELECT_TRACK);
-        currentChannel = channel;
-    }
-
-    // if we select a new channel
-    if (currentChannel == null || currentChannel != channel) {
+    if (currentChannel != channel) {
         // unselect previous track
-        this.hardware.updateChannelLed(false, currentChannel, SELECT_TRACK);
+        if (inRange(currentChannel, 0, 7)) this.hardware.updateChannelLed(false, currentChannel, SELECT_TRACK);
+        else this.hardware.updateLed(false, MASTER_TRACK);
 
-        // select new track
-        this.trackbank.getTrack(channel).selectInMixer();
-        this.hardware.updateChannelLed(true, channel, SELECT_TRACK);
+        if (data1 == MASTER_TRACK) {
+            this.master.selectInMixer();
+            this.hardware.updateLed(true, MASTER_TRACK);
+        } else {
+            this.trackbank.getTrack(channel).selectInMixer();
+            this.hardware.updateChannelLed(true, channel, SELECT_TRACK);
+        }
 
         currentChannel = channel;
     }
@@ -166,11 +166,16 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
             return true;
         }
 
-        if (data1 == 0x07) {
+        if (data1 == TRACK_FADER) {
             this.trackbank
                 .getItemAt(status - 0xb0)
                 .volume()
                 .set(data2, 128);
+            return true;
+        }
+
+        if (data1 == MASTER_VOLUME) {
+            this.master.getVolume().set(data2, 128);
             return true;
         }
     }
@@ -282,7 +287,11 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
                 return true;
 
             case SELECT_TRACK:
-                this.selectTrack(status);
+                this.selectTrack(status, data1);
+                return true;
+
+            case MASTER_TRACK:
+                this.selectTrack(status, data1);
                 return true;
         }
     }

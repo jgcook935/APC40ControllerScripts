@@ -22,6 +22,7 @@ var ROW_5 = 0x39;
 var MUTE = 0x32;
 var SOLO = 0x31;
 var ARM = 0x30;
+var TRACK_FADER = 0x07;
 
 // application handler
 var BUTTON_DETAIL = 0x3e;
