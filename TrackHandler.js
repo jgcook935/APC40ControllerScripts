@@ -13,6 +13,48 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
         this.panSelected = true;
         const track = this.trackbank.getItemAt(i);
 
+        const clipLauncher = track.clipLauncherSlotBank();
+        clipLauncher.setIndication(true);
+
+        for (j = 0; j < 5; j++) {
+            const noteNumber = 0x35 + j;
+            const track = i;
+            const slot = clipLauncher.getItemAt(j);
+
+            // this probably won't matter since colors only represent status on mk1
+            slot.color().markInterested();
+
+            slot.isPlaybackQueued().markInterested();
+            slot.isPlaybackQueued().addValueObserver(value => {
+                const channel = (value ? 0x90 : 0x80) + track;
+                hardware.updateLaunchLed(channel, noteNumber, value ? 2 : 0);
+            });
+
+            slot.hasContent().markInterested();
+            slot.hasContent().addValueObserver(value => {
+                const channel = (value ? 0x90 : 0x80) + track;
+                hardware.updateLaunchLed(channel, noteNumber, value ? 5 : 0);
+            });
+
+            slot.isPlaying().markInterested();
+            slot.isPlaying().addValueObserver(value => {
+                const channel = (value ? 0x90 : 0x80) + track;
+                hardware.updateLaunchLed(channel, noteNumber, value ? 1 : 0);
+            });
+
+            slot.isRecording().markInterested();
+            slot.isRecordingQueued().markInterested();
+
+            slot.isStopQueued().markInterested();
+            // there's a bitwig bug around isStopQueued, so not using for now
+            // slot.isStopQueued().addValueObserver(value => {
+            //     const channel = (value ? 0x90 : 0x80) + track;
+            //     hardware.updateLaunchLed(channel, noteNumber, value ? 4 : 0);
+            // });
+
+            slot.exists().markInterested();
+        }
+
         const knobChannel = 0x30 + i;
         const buttonChannel = i;
 
@@ -80,6 +122,13 @@ TrackHandler.prototype.selectTrack = status => {
         currentChannel = channel;
     }
 };
+
+// TrackHandler.prototype.flashTrackLed = channel => {
+//     for (j = 0; j < 5; j++) {
+//         const noteNumber = 0x35 + j;
+//         hardware.updateLaunchLed(channel, noteNumber, 4);
+//     }
+// };
 
 TrackHandler.prototype.updateVolOrPan = panSelected => {
     for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
@@ -163,6 +212,8 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
 
             case CLIP_STOP:
                 this.trackbank.getItemAt(status - 0x90).stop();
+                // need to figure out a way to stop the flashing after we stop
+                // this.flashTrackLed(status);
                 return true;
 
             case ALL_STOP:
