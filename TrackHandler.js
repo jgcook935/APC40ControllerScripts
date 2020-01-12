@@ -89,6 +89,10 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
         mute.addValueObserver(mute => {
             hardware.updateChannelLed(mute, buttonChannel, MUTE);
         });
+
+        this.trackbank.getTrack(0).selectInMixer();
+        this.hardware.updateChannelLed(true, 0, SELECT_TRACK);
+        currentChannel = 0;
     }
 
     this.trackbank.followCursorTrack(this.cursorTrack);
@@ -98,16 +102,16 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
 TrackHandler.prototype.selectTrack = status => {
     let channel = status - 0x90;
 
+    // if we are selecting the same channel as before, do nothing
+    if (currentChannel == channel) {
+        // no op
+    }
+
     // if we're selecting a channel for the first time
     if (currentChannel == undefined) {
         this.trackbank.getTrack(status - 0x90).selectInMixer();
         this.hardware.updateChannelLed(true, channel, SELECT_TRACK);
         currentChannel = channel;
-    }
-
-    // if we are selecting the same channel as before, do nothing
-    if (currentChannel == channel) {
-        // no op
     }
 
     // if we select a new channel
