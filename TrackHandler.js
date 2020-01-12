@@ -50,7 +50,6 @@ TrackHandler = (trackbank, cursorTrack, hardware) => {
     }
 
     this.trackbank.followCursorTrack(this.cursorTrack);
-    println("pan selected " + this.panSelected);
     this.hardware.updateLed(this.panSelected, SELECT_PAN);
 };
 
