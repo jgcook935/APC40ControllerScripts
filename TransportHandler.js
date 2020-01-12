@@ -6,8 +6,18 @@ TransportHandler = (transport, hardware) => {
 
     this.transport.isPlaying().markInterested();
     this.transport.isArrangerRecordEnabled().markInterested();
-    this.transport.isMetronomeEnabled().markInterested();
-    this.transport.isArrangerOverdubEnabled().markInterested();
+
+    const metro = this.transport.isMetronomeEnabled();
+    metro.markInterested();
+    metro.addValueObserver(value => {
+        hardware.updateLed(value, BUTTON_METRO);
+    });
+
+    const over = this.transport.isArrangerOverdubEnabled();
+    over.markInterested();
+    over.addValueObserver(value => {
+        hardware.updateLed(value, BUTTON_OVERDUB);
+    });
 };
 
 TransportHandler.prototype.handleMidi = (status, data1, data2) => {
@@ -31,12 +41,10 @@ TransportHandler.prototype.handleMidi = (status, data1, data2) => {
 
             case BUTTON_METRO:
                 this.transport.isMetronomeEnabled().toggle();
-                this.hardware.updateLed(!this.transport.isMetronomeEnabled().get(), BUTTON_METRO);
                 return true;
 
             case BUTTON_OVERDUB:
                 this.transport.isArrangerOverdubEnabled().toggle();
-                this.hardware.updateLed(!this.transport.isArrangerOverdubEnabled().get(), BUTTON_OVERDUB);
                 return true;
 
             default:

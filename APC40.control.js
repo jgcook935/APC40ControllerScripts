@@ -23,7 +23,7 @@ let transport;
 
 init = () => {
     hardware = new Apc40Hardware(host.getMidiOutPort(0), host.getMidiInPort(0), handleMidi);
-    app = new ApplicationHandler(host.createApplication());
+    app = new ApplicationHandler(host.createApplication(), hardware);
     master = host.createMasterTrack(8);
     project = new ProjectHandler(host.getProject());
 

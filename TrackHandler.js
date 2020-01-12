@@ -223,6 +223,7 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
                 this.trackbank.getItemAt(status - 0x90).stop();
                 // need to figure out a way to stop the flashing after we stop
                 // this.flashTrackLed(status);
+                this.hardware.updateChannelLed(true, status - 0x90, CLIP_STOP);
                 return true;
 
             case ALL_STOP:
@@ -233,22 +234,27 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
 
             case SCENE_1:
                 this.trackbank.sceneBank().launchScene(0);
+                this.hardware.updateLed(true, SCENE_1);
                 return true;
 
             case SCENE_2:
                 this.trackbank.sceneBank().launchScene(1);
+                this.hardware.updateLed(true, SCENE_2);
                 return true;
 
             case SCENE_3:
                 this.trackbank.sceneBank().launchScene(2);
+                this.hardware.updateLed(true, SCENE_3);
                 return true;
 
             case SCENE_4:
                 this.trackbank.sceneBank().launchScene(3);
+                this.hardware.updateLed(true, SCENE_4);
                 return true;
 
             case SCENE_5:
                 this.trackbank.sceneBank().launchScene(4);
+                this.hardware.updateLed(true, SCENE_5);
                 return true;
 
             case ROW_1:
@@ -292,6 +298,29 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
 
             case MASTER_TRACK:
                 this.selectTrack(status, data1);
+                return true;
+        }
+    }
+
+    if (isNoteOff(status)) {
+        switch (data1) {
+            case SCENE_1:
+                this.hardware.updateLed(false, SCENE_1);
+                return true;
+            case SCENE_2:
+                this.hardware.updateLed(false, SCENE_2);
+                return true;
+            case SCENE_3:
+                this.hardware.updateLed(false, SCENE_3);
+                return true;
+            case SCENE_4:
+                this.hardware.updateLed(false, SCENE_4);
+                return true;
+            case SCENE_5:
+                this.hardware.updateLed(false, SCENE_5);
+                return true;
+            case CLIP_STOP:
+                this.hardware.updateChannelLed(false, status - 0x80, CLIP_STOP);
                 return true;
         }
     }

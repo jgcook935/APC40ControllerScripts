@@ -21,9 +21,24 @@ RemoteControlHandler.prototype.handleMidi = (status, data1, data2) => {
         switch (data1) {
             case ARROW_LEFT:
                 this.cursorDevice.selectPrevious();
+                this.hardware.updateChannelLed(true, 0, ARROW_LEFT);
                 return true;
             case ARROW_RIGHT:
                 this.cursorDevice.selectNext();
+                this.hardware.updateChannelLed(true, 0, ARROW_RIGHT);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    if (isNoteOff(status)) {
+        switch (data1) {
+            case ARROW_LEFT:
+                this.hardware.updateChannelLed(false, 0, ARROW_LEFT);
+                return true;
+            case ARROW_RIGHT:
+                this.hardware.updateChannelLed(false, 0, ARROW_RIGHT);
                 return true;
             default:
                 return false;
