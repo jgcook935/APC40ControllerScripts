@@ -23,3 +23,7 @@ Apc40Hardware.prototype.updateDeviceKnobLedFrom = (id, data) => {
 Apc40Hardware.prototype.updateDeviceKnobLedTo = (id, data) => {
     this.portOut.sendMidi(0xb0, id, data);
 };
+
+Apc40Hardware.prototype.updateLaunchLed = (channel, noteNumber, state) => {
+    this.portOut.sendMidi(channel, noteNumber, state);
+};
