@@ -4,86 +4,54 @@ load("Helpers.js");
 let currentChannel = undefined;
 let panSelected;
 
-let volumeCache = [0, 0, 0, 0, 0, 0, 0, 0];
-let panCache = [0, 0, 0, 0, 0, 0, 0, 0];
-let muteCache = [0, 0, 0, 0, 0, 0, 0, 0];
-let soloCache = [0, 0, 0, 0, 0, 0, 0, 0];
-let armCache = [0, 0, 0, 0, 0, 0, 0, 0];
-
 TrackHandler = (trackbank, cursorTrack, hardware) => {
     this.trackbank = trackbank;
     this.cursorTrack = cursorTrack;
     this.hardware = hardware;
 
     for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
-        this.panSelected = false;
+        this.panSelected = true;
         const track = this.trackbank.getItemAt(i);
+
+        const knobChannel = 0x30 + i;
+        const buttonChannel = i;
 
         const pan = track.pan();
         pan.markInterested();
         pan.setIndication(true);
-        panCache[i] = pan.get();
+        pan.addValueObserver(pan => {
+            hardware.updateDeviceKnobLedFrom(knobChannel, pan);
+        });
 
         const volume = track.volume();
         volume.markInterested();
         volume.setIndication(true);
-        volumeCache[i] = volume.get();
+        volume.addValueObserver(volume => {
+            hardware.updateDeviceKnobLedFrom(knobChannel, volume);
+        });
 
         const solo = track.solo();
         solo.markInterested();
-        soloCache[i] = solo.get();
+        solo.addValueObserver(solo => {
+            hardware.updateChannelLed(solo, buttonChannel, SOLO);
+        });
 
         const arm = track.arm();
         arm.markInterested();
-        armCache[i] = arm.get();
+        arm.addValueObserver(arm => {
+            hardware.updateChannelLed(arm, buttonChannel, ARM);
+        });
 
         const mute = track.mute();
         mute.markInterested();
-        muteCache[i] = mute.get();
+        mute.addValueObserver(mute => {
+            hardware.updateChannelLed(mute, buttonChannel, MUTE);
+        });
     }
 
     this.trackbank.followCursorTrack(this.cursorTrack);
-};
-
-TrackHandler.prototype.updateTrackLeds = () => {
-    for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
-        const track = this.trackbank.getTrack(i);
-        const volume = track.volume().get();
-        const pan = track.pan().get();
-        const mute = track.mute().get();
-        const solo = track.solo().get();
-        const arm = track.arm().get();
-
-        // update volume knobs
-        if (volumeCache[i] != volume || !this.panSelected) {
-            this.hardware.updateDeviceKnobLedFrom(0x30 + i, volume);
-            volumeCache[i] = volume;
-        }
-
-        // update pan knobs
-        if (panCache[i] != pan || this.panSelected) {
-            this.hardware.updateDeviceKnobLedFrom(0x30 + i, pan);
-            panCache[i] = pan;
-        }
-
-        // update mute button leds
-        if (muteCache[i] != mute) {
-            this.hardware.updateChannelLed(mute, i, MUTE);
-            muteCache[i] = mute;
-        }
-
-        // update solo button leds
-        if (soloCache[i] != solo) {
-            this.hardware.updateChannelLed(solo, i, SOLO);
-            soloCache[i] = solo;
-        }
-
-        // update arm button leds
-        if (armCache[i] != arm) {
-            this.hardware.updateChannelLed(arm, i, ARM);
-            armCache[i] = arm;
-        }
-    }
+    println("pan selected " + this.panSelected);
+    this.hardware.updateLed(this.panSelected, SELECT_PAN);
 };
 
 TrackHandler.prototype.selectTrack = status => {
@@ -114,6 +82,21 @@ TrackHandler.prototype.selectTrack = status => {
     }
 };
 
+TrackHandler.prototype.updateVolOrPan = panSelected => {
+    for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
+        const knobChannel = 0x30 + i;
+        const track = this.trackbank.getItemAt(i);
+
+        if (panSelected) {
+            const pan = track.pan().get();
+            this.hardware.updateDeviceKnobLedFrom(knobChannel, pan);
+        } else {
+            const volume = track.volume().get();
+            this.hardware.updateDeviceKnobLedFrom(knobChannel, volume);
+        }
+    }
+};
+
 TrackHandler.prototype.handleMidi = (status, data1, data2) => {
     if (isChannelController(status)) {
         if (inRange(data1, 0x30, 0x37)) {
@@ -122,13 +105,11 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
                     .getItemAt(data1 - 0x30)
                     .pan()
                     .set(data2, 128);
-                panCache[data1 - 0x30] = data2;
             } else {
                 this.trackbank
                     .getItemAt(data1 - 0x30)
                     .volume()
                     .set(data2, 128);
-                volumeCache[data1 - 0x30] = data2;
             }
             return true;
         }
@@ -163,24 +144,22 @@ TrackHandler.prototype.handleMidi = (status, data1, data2) => {
             case SELECT_PAN:
                 this.panSelected = !this.panSelected;
                 this.hardware.updateLed(this.panSelected, SELECT_PAN);
+                this.updateVolOrPan(this.panSelected);
                 return true;
 
             case MUTE:
                 mute = this.trackbank.getItemAt(status - 0x90).mute();
                 mute.toggle();
-                muteCache[status - 0x90] = mute.get();
                 return true;
 
             case SOLO:
                 solo = this.trackbank.getItemAt(status - 0x90).solo();
                 solo.toggle();
-                soloCache[status - 0x90] = solo.get();
                 return true;
 
             case ARM:
                 arm = this.trackbank.getItemAt(status - 0x90).arm();
                 arm.toggle();
-                armCache[status - 0x90] = arm.get();
                 return true;
 
             case CLIP_STOP:
