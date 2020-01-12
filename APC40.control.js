@@ -2,7 +2,6 @@ loadAPI(10);
 load("Apc40Hardware.js");
 load("ApplicationHandler.js");
 load("DeviceHandler.js");
-load("MasterTrackHandler.js");
 load("RemoteControlHandler.js");
 load("TrackHandler.js");
 load("TransportHandler.js");
