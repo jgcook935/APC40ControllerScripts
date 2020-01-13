@@ -8,7 +8,9 @@ Move the contents of this repository into a folder called AkaiAPC40Mk1 in the fo
 
 On Windows
 %USERPROFILE%\Documents\Bitwig Studio\Controller Scripts\
+
 On Mac
 ~/Documents/Bitwig Studio/Controller Scripts/
+
 On Linux
 ~/Bitwig Studio/Controller Scripts/
