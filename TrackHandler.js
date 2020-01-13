@@ -1,201 +1,327 @@
+load("Constants.js");
 load("Helpers.js");
 
-// for bank select buttons, these will move the trackbank forward and back
-const SELECT_RIGHT = 0x60;
-const SELECT_LEFT = 0x61;
+let currentChannel = undefined;
+let panSelected;
 
-// for the block of activator/solo/cue/arm buttons
-const MUTE = 0x32;
-const SOLO = 0x31;
-const ARM = 0x30;
-
-var currentChannel = null;
-
-TrackHandler = (trackbank, cursorTrack, hardware) => {
+TrackHandler = (trackbank, cursorTrack, hardware, master) => {
     this.trackbank = trackbank;
     this.cursorTrack = cursorTrack;
     this.hardware = hardware;
+    this.master = master;
 
     for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
-        var track = this.trackbank.getItemAt(i);
+        this.panSelected = true;
+        const track = this.trackbank.getItemAt(i);
 
-        var pan = track.pan();
+        const clipLauncher = track.clipLauncherSlotBank();
+        clipLauncher.setIndication(true);
+
+        for (j = 0; j < 5; j++) {
+            const noteNumber = 0x35 + j;
+            const track = i;
+            const slot = clipLauncher.getItemAt(j);
+
+            // this probably won't matter since colors only represent status on mk1
+            slot.color().markInterested();
+
+            slot.isPlaybackQueued().markInterested();
+            slot.isPlaybackQueued().addValueObserver(value => {
+                const channel = (value ? 0x90 : 0x80) + track;
+                hardware.updateLaunchLed(channel, noteNumber, value ? 2 : 0);
+            });
+
+            slot.hasContent().markInterested();
+            slot.hasContent().addValueObserver(value => {
+                const channel = (value ? 0x90 : 0x80) + track;
+                hardware.updateLaunchLed(channel, noteNumber, value ? 5 : 0);
+            });
+
+            slot.isPlaying().markInterested();
+            slot.isPlaying().addValueObserver(value => {
+                const channel = (value ? 0x90 : 0x80) + track;
+                hardware.updateLaunchLed(channel, noteNumber, value ? 1 : 0);
+            });
+
+            slot.isRecording().markInterested();
+            slot.isRecordingQueued().markInterested();
+
+            slot.isStopQueued().markInterested();
+            // there's a bitwig bug around isStopQueued, so not using for now
+            // slot.isStopQueued().addValueObserver(value => {
+            //     const channel = (value ? 0x90 : 0x80) + track;
+            //     hardware.updateLaunchLed(channel, noteNumber, value ? 4 : 0);
+            // });
+
+            slot.exists().markInterested();
+        }
+
+        const knobChannel = 0x30 + i;
+        const buttonChannel = i;
+
+        // i need to set indication and mark interested for master volume
+
+        const pan = track.pan();
         pan.markInterested();
         pan.setIndication(true);
+        pan.addValueObserver(pan => {
+            hardware.updateDeviceKnobLedFrom(knobChannel, pan);
+        });
 
-        var volume = track.volume();
+        const volume = track.volume();
         volume.markInterested();
         volume.setIndication(true);
+        volume.addValueObserver(volume => {
+            hardware.updateDeviceKnobLedFrom(knobChannel, volume);
+        });
 
-        var solo = track.solo();
+        const solo = track.solo();
         solo.markInterested();
+        solo.addValueObserver(solo => {
+            hardware.updateChannelLed(solo, buttonChannel, SOLO);
+        });
 
-        var arm = track.arm();
+        const arm = track.arm();
         arm.markInterested();
-        // solo.setIndication(true);
+        arm.addValueObserver(arm => {
+            hardware.updateChannelLed(arm, buttonChannel, ARM);
+        });
 
-        var mute = track.mute();
+        const mute = track.mute();
         mute.markInterested();
-        // mute.setIndication(true);
+        mute.addValueObserver(mute => {
+            hardware.updateChannelLed(mute, buttonChannel, MUTE);
+        });
+
+        this.trackbank.getTrack(0).selectInMixer();
+        this.hardware.updateChannelLed(true, 0, SELECT_TRACK);
+        currentChannel = 0;
     }
 
     this.trackbank.followCursorTrack(this.cursorTrack);
+    this.hardware.updateLed(this.panSelected, SELECT_PAN);
+};
 
-    // this.cursorTrack.solo().markInterested();
-    // this.cursorTrack.mute().markInterested();
+TrackHandler.prototype.selectTrack = (status, data1) => {
+    let channel;
+    if (data1 != MASTER_TRACK) {
+        channel = status - 0x90;
+    } else {
+        channel = 8;
+    }
+
+    if (currentChannel != channel) {
+        // unselect previous track
+        if (inRange(currentChannel, 0, 7)) this.hardware.updateChannelLed(false, currentChannel, SELECT_TRACK);
+        else this.hardware.updateLed(false, MASTER_TRACK);
+
+        if (data1 == MASTER_TRACK) {
+            this.master.selectInMixer();
+            this.hardware.updateLed(true, MASTER_TRACK);
+        } else {
+            this.trackbank.getTrack(channel).selectInMixer();
+            this.hardware.updateChannelLed(true, channel, SELECT_TRACK);
+        }
+
+        currentChannel = channel;
+    }
+};
+
+// TrackHandler.prototype.flashTrackLed = channel => {
+//     for (j = 0; j < 5; j++) {
+//         const noteNumber = 0x35 + j;
+//         hardware.updateLaunchLed(channel, noteNumber, 4);
+//     }
+// };
+
+TrackHandler.prototype.updateVolOrPan = panSelected => {
+    for (i = 0; i < this.trackbank.getSizeOfBank(); i++) {
+        const knobChannel = 0x30 + i;
+        const track = this.trackbank.getItemAt(i);
+
+        if (panSelected) {
+            const pan = track.pan().get();
+            this.hardware.updateDeviceKnobLedFrom(knobChannel, pan);
+        } else {
+            const volume = track.volume().get();
+            this.hardware.updateDeviceKnobLedFrom(knobChannel, volume);
+        }
+    }
 };
 
 TrackHandler.prototype.handleMidi = (status, data1, data2) => {
-    // handles track control knobs
-    if (isChannelController(status) && inRange(data1, 0x30, 0x37)) {
-        // TODO: check whether pan, or any of the sends are selected here
-        this.trackbank
-            .getItemAt(data1 - 0x30)
-            .pan()
-            .set(data2, 128);
-        this.hardware.updateDeviceKnobLed(data1, data2);
-        return true;
-    }
-
-    // handles track faders
-    if (isControl(status) && data1 == 0x07) {
-        this.trackbank
-            .getItemAt(status - 0xb0)
-            .volume()
-            .set(data2, 128);
-        return true;
-    }
-
-    // handles track selection buttons on
-    if (inRange(status, 0x90, 0x97) && data1 == 0x33) {
-        // grab the channel coming in
-        let channel = status - 0x90;
-
-        // if we're selecting a channel for the first time
-        if (currentChannel == null) {
-            this.trackbank.getItemAt(status - 0x90).selectInMixer();
-            this.hardware.updateChannelLed(true, channel, 0x33);
-            currentChannel = channel;
-        }
-
-        // if we are selecting the same channel as before, do nothing
-        if (currentChannel == channel) {
-            // no op
-            return false;
-        }
-
-        // if we select a new channel
-        if (currentChannel == null || currentChannel != channel) {
-            this.trackbank.getItemAt(channel).selectInMixer();
-
-            this.hardware.updateChannelLed(true, channel, 0x33);
-
-            // unselect previous track
-            this.hardware.updateChannelLed(false, currentChannel, 0x33);
-
-            println("current channel " + currentChannel);
-
-            currentChannel = channel;
+    if (isChannelController(status)) {
+        if (inRange(data1, 0x30, 0x37)) {
+            if (this.panSelected) {
+                this.trackbank
+                    .getItemAt(data1 - 0x30)
+                    .pan()
+                    .set(data2, 128);
+            } else {
+                this.trackbank
+                    .getItemAt(data1 - 0x30)
+                    .volume()
+                    .set(data2, 128);
+            }
             return true;
         }
-        return false;
-    }
 
-    // handles single track stop
-    if (inRange(status, 0x90, 0x97) && data1 == 0x34 && data2 == 0x7f) {
-        this.trackbank.getItemAt(status - 0x90).stop();
-        return true;
-    }
-
-    // handles all track stop
-    if (status == 0x90 && data1 == 0x51 && data2 == 0x7f) {
-        for (let i = 0; i < 8; i++) {
-            this.trackbank.getItemAt(i).stop();
+        if (data1 == TRACK_FADER) {
+            this.trackbank
+                .getItemAt(status - 0xb0)
+                .volume()
+                .set(data2, 128);
+            return true;
         }
-        return true;
+
+        if (data1 == MASTER_VOLUME) {
+            this.master.getVolume().set(data2, 128);
+            return true;
+        }
     }
 
-    // handles scene launch
-    if (inRange(status, 0x90, 0x97) && inRange(data1, 0x52, 0x56)) {
-        this.trackbank.sceneBank().launchScene(data1 - 0x52);
-        return true;
-    }
-
-    // handles track pages
     if (isNoteOn(status)) {
         switch (data1) {
             case SELECT_LEFT:
                 this.trackbank.scrollPageBackwards();
                 return true;
+
             case SELECT_RIGHT:
                 this.trackbank.scrollPageForwards();
+                return true;
+
+            case SELECT_UP:
+                this.trackbank.scrollScenesPageUp();
+                return true;
+
+            case SELECT_DOWN:
+                this.trackbank.scrollScenesPageDown();
+                return true;
+
+            case SELECT_PAN:
+                this.panSelected = !this.panSelected;
+                this.hardware.updateLed(this.panSelected, SELECT_PAN);
+                this.updateVolOrPan(this.panSelected);
+                return true;
+
+            case MUTE:
+                mute = this.trackbank.getItemAt(status - 0x90).mute();
+                mute.toggle();
+                return true;
+
+            case SOLO:
+                solo = this.trackbank.getItemAt(status - 0x90).solo();
+                solo.toggle();
+                return true;
+
+            case ARM:
+                arm = this.trackbank.getItemAt(status - 0x90).arm();
+                arm.toggle();
+                return true;
+
+            case CLIP_STOP:
+                this.trackbank.getItemAt(status - 0x90).stop();
+                // need to figure out a way to stop the flashing after we stop
+                // this.flashTrackLed(status);
+                this.hardware.updateChannelLed(true, status - 0x90, CLIP_STOP);
+                return true;
+
+            case ALL_STOP:
+                for (let i = 0; i < 8; i++) {
+                    this.trackbank.getItemAt(i).stop();
+                }
+                return true;
+
+            case SCENE_1:
+                this.trackbank.sceneBank().launchScene(0);
+                this.hardware.updateLed(true, SCENE_1);
+                return true;
+
+            case SCENE_2:
+                this.trackbank.sceneBank().launchScene(1);
+                this.hardware.updateLed(true, SCENE_2);
+                return true;
+
+            case SCENE_3:
+                this.trackbank.sceneBank().launchScene(2);
+                this.hardware.updateLed(true, SCENE_3);
+                return true;
+
+            case SCENE_4:
+                this.trackbank.sceneBank().launchScene(3);
+                this.hardware.updateLed(true, SCENE_4);
+                return true;
+
+            case SCENE_5:
+                this.trackbank.sceneBank().launchScene(4);
+                this.hardware.updateLed(true, SCENE_5);
+                return true;
+
+            case ROW_1:
+                this.trackbank
+                    .getItemAt(status - 0x90)
+                    .getClipLauncherSlots()
+                    .launch(0);
+                return true;
+
+            case ROW_2:
+                this.trackbank
+                    .getItemAt(status - 0x90)
+                    .getClipLauncherSlots()
+                    .launch(1);
+                return true;
+
+            case ROW_3:
+                this.trackbank
+                    .getItemAt(status - 0x90)
+                    .getClipLauncherSlots()
+                    .launch(2);
+                return true;
+
+            case ROW_4:
+                this.trackbank
+                    .getItemAt(status - 0x90)
+                    .getClipLauncherSlots()
+                    .launch(3);
+                return true;
+
+            case ROW_5:
+                this.trackbank
+                    .getItemAt(status - 0x90)
+                    .getClipLauncherSlots()
+                    .launch(4);
+                return true;
+
+            case SELECT_TRACK:
+                this.selectTrack(status, data1);
+                return true;
+
+            case MASTER_TRACK:
+                this.selectTrack(status, data1);
                 return true;
         }
     }
 
-    // handles clip launch
-    if (inRange(status, 0x90, 0x97) && inRange(data1, 0x35, 0x39) && data2 == 0x7f) {
-        this.trackbank
-            .getItemAt(status - 0x90)
-            .getClipLauncherSlots()
-            .launch(data1 - 0x35);
-        return true;
-    }
-
-    if (inRange(status, 0x90, 0x97) && inRange(data1, 0x30, 0x32)) {
-        channel = status >= 0x90 ? status - 0x90 : status - 0x80;
-
+    if (isNoteOff(status)) {
         switch (data1) {
-            case MUTE:
-                this.trackbank
-                    .getItemAt(channel)
-                    .mute()
-                    .toggle();
-
-                this.hardware.updateChannelLed(
-                    !this.trackbank
-                        .getItemAt(channel)
-                        .mute()
-                        .get(),
-                    channel,
-                    0x32
-                );
+            case SCENE_1:
+                this.hardware.updateLed(false, SCENE_1);
                 return true;
-
-            case SOLO:
-                this.trackbank
-                    .getItemAt(channel)
-                    .solo()
-                    .toggle();
-
-                this.hardware.updateChannelLed(
-                    !this.trackbank
-                        .getItemAt(channel)
-                        .solo()
-                        .get(),
-                    channel,
-                    0x31
-                );
+            case SCENE_2:
+                this.hardware.updateLed(false, SCENE_2);
                 return true;
-
-            case ARM:
-                this.trackbank
-                    .getItemAt(channel)
-                    .arm()
-                    .toggle();
-
-                this.hardware.updateChannelLed(
-                    !this.trackbank
-                        .getItemAt(channel)
-                        .arm()
-                        .get(),
-                    channel,
-                    0x30
-                );
+            case SCENE_3:
+                this.hardware.updateLed(false, SCENE_3);
                 return true;
-
-            default:
-                return false;
+            case SCENE_4:
+                this.hardware.updateLed(false, SCENE_4);
+                return true;
+            case SCENE_5:
+                this.hardware.updateLed(false, SCENE_5);
+                return true;
+            case CLIP_STOP:
+                this.hardware.updateChannelLed(false, status - 0x80, CLIP_STOP);
+                return true;
         }
     }
 
